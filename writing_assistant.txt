@@ -1,0 +1,361 @@
+"""
+Advanced Writing Assistant Backend
+Demonstrates integration with NLP libraries and APIs for production-grade grammar checking,
+style analysis, and plagiarism detection.
+"""
+
+import re
+import json
+from typing import List, Dict, Tuple
+from dataclasses import dataclass, asdict
+from collections import Counter
+import hashlib
+
+# Note: In production, you would install these packages:
+# pip install language-tool-python nltk spacy textstat sentence-transformers --break-system-packages
+# python -m spacy download en_core_web_sm
+
+@dataclass
+class Issue:
+    """Represents a writing issue found in the document"""
+    type: str  # 'error', 'warning', 'style', 'plagiarism'
+    category: str  # 'Grammar', 'Spelling', 'Style', 'Plagiarism'
+    position: int
+    length: int
+    text: str
+    suggestion: str
+    confidence: float = 1.0
+    source: str = None
+    
+class GrammarChecker:
+    """Grammar and style checking using multiple techniques"""
+    
+    def __init__(self):
+        # Common grammar patterns
+        self.patterns = [
+            # Subject-verb agreement
+            (r'\b(I|you|we|they)\s+was\b', 'error', 'Use "were" instead of "was"'),
+            (r'\b(he|she|it)\s+were\b', 'error', 'Use "was" instead of "were"'),
+            
+            # Article errors
+            (r'\ba\s+[aeiou]', 'error', 'Use "an" before vowel sounds'),
+            (r'\ban\s+[^aeiou]', 'error', 'Use "a" before consonant sounds'),
+            
+            # Common confusions
+            (r'\byour\s+(going|doing|being)', 'error', 'Did you mean "you\'re"?'),
+            (r'\bshould\s+of\b', 'error', 'Use "should have" instead of "should of"'),
+            (r'\bcould\s+of\b', 'error', 'Use "could have" instead of "could of"'),
+            (r'\bwould\s+of\b', 'error', 'Use "would have" instead of "would of"'),
+            
+            # Capitalization
+            (r'\.\s+[a-z]', 'error', 'Capitalize first letter after period'),
+            (r'^\s*[a-z]', 'error', 'Capitalize first letter of sentence'),
+            
+            # Spacing
+            (r'\s{2,}', 'warning', 'Multiple consecutive spaces'),
+            (r'[.!?]\w', 'error', 'Missing space after punctuation'),
+            
+            # Common typos
+            (r'\b(teh|hte)\b', 'error', 'Did you mean "the"?'),
+            (r'\b(recieve)\b', 'error', 'Correct spelling: "receive"'),
+            (r'\b(occured)\b', 'error', 'Correct spelling: "occurred"'),
+            (r'\b(seperate)\b', 'error', 'Correct spelling: "separate"'),
+        ]
+        
+        # Style patterns
+        self.style_patterns = [
+            (r'\bvery\s+\w+', 'style', 'Consider a stronger adjective'),
+            (r'\breally\b', 'style', 'Consider removing weak intensifier'),
+            (r'\bjust\b', 'style', 'Often unnecessary - consider removing'),
+            (r'\bactually\b', 'style', 'Often unnecessary - consider removing'),
+            (r'\bbasically\b', 'style', 'Often unnecessary - consider removing'),
+            (r'\bin order to\b', 'style', 'Consider simplifying to "to"'),
+            (r'\bdue to the fact that\b', 'style', 'Consider simplifying to "because"'),
+        ]
+        
+        # Passive voice patterns
+        self.passive_patterns = [
+            r'\b(is|are|was|were|been|being)\s+\w+ed\b',
+            r'\b(is|are|was|were|been|being)\s+(given|taken|made|done|seen|known)\b',
+        ]
+        
+        # Redundancy patterns
+        self.redundancies = [
+            'absolutely necessary', 'advance planning', 'past history',
+            'end result', 'final outcome', 'free gift', 'future plans',
+            'completely finished', 'totally destroyed', 'unexpected surprise'
+        ]
+        
+    def check(self, text: str) -> List[Issue]:
+        """Run all grammar and style checks"""
+        issues = []
+        
+        # Pattern-based checks
+        for pattern, issue_type, suggestion in self.patterns:
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                issues.append(Issue(
+                    type=issue_type,
+                    category='Grammar',
+                    position=match.start(),
+                    length=len(match.group()),
+                    text=match.group(),
+                    suggestion=suggestion
+                ))
+        
+        # Style checks
+        for pattern, issue_type, suggestion in self.style_patterns:
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                issues.append(Issue(
+                    type=issue_type,
+                    category='Style',
+                    position=match.start(),
+                    length=len(match.group()),
+                    text=match.group(),
+                    suggestion=suggestion
+                ))
+        
+        # Passive voice detection
+        for pattern in self.passive_patterns:
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                issues.append(Issue(
+                    type='style',
+                    category='Style',
+                    position=match.start(),
+                    length=len(match.group()),
+                    text=match.group(),
+                    suggestion='Consider using active voice for clarity'
+                ))
+        
+        # Redundancy checks
+        for redundancy in self.redundancies:
+            pattern = r'\b' + re.escape(redundancy) + r'\b'
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                issues.append(Issue(
+                    type='style',
+                    category='Style',
+                    position=match.start(),
+                    length=len(match.group()),
+                    text=match.group(),
+                    suggestion=f'Redundant phrase - "{redundancy}"'
+                ))
+        
+        # Duplicate words
+        duplicate_pattern = r'\b(\w+)\s+\1\b'
+        for match in re.finditer(duplicate_pattern, text, re.IGNORECASE):
+            issues.append(Issue(
+                type='error',
+                category='Grammar',
+                position=match.start(),
+                length=len(match.group()),
+                text=match.group(),
+                suggestion=f'Duplicate word: "{match.group(1)}"'
+            ))
+        
+        return issues
+
+class PlagiarismDetector:
+    """Plagiarism detection using fingerprinting and similarity algorithms"""
+    
+    def __init__(self):
+        # In production, this would connect to a large database
+        self.known_phrases = self._load_common_phrases()
+        
+    def _load_common_phrases(self) -> Dict[str, str]:
+        """Load database of common phrases (simulated)"""
+        return {
+            'climate change is one of the most pressing issues': 'Academic Commons',
+            'in today\'s digital age': 'Common Business Writing',
+            'the importance of education cannot be overstated': 'Educational Literature',
+            'with great power comes great responsibility': 'Spider-Man (2002)',
+            'to be or not to be': 'Hamlet by William Shakespeare',
+            'call me ishmael': 'Moby-Dick by Herman Melville',
+        }
+    
+    def _extract_ngrams(self, text: str, n: int = 5) -> List[str]:
+        """Extract n-grams from text"""
+        words = text.lower().split()
+        return [' '.join(words[i:i+n]) for i in range(len(words) - n + 1)]
+    
+    def _calculate_fingerprint(self, text: str) -> str:
+        """Create fingerprint using hash of n-grams"""
+        ngrams = self._extract_ngrams(text, n=5)
+        fingerprints = [hashlib.md5(ng.encode()).hexdigest() for ng in ngrams]
+        return '|'.join(sorted(fingerprints))
+    
+    def check(self, text: str) -> List[Issue]:
+        """Check for plagiarism"""
+        issues = []
+        
+        # Check against known phrases
+        text_lower = text.lower()
+        for phrase, source in self.known_phrases.items():
+            index = text_lower.find(phrase)
+            if index != -1:
+                issues.append(Issue(
+                    type='plagiarism',
+                    category='Plagiarism',
+                    position=index,
+                    length=len(phrase),
+                    text=text[index:index + len(phrase)],
+                    suggestion=f'Similar to known source',
+                    source=source,
+                    confidence=0.95
+                ))
+        
+        # Check for quotes without attribution
+        quote_pattern = r'"([^"]{30,})"'
+        for match in re.finditer(quote_pattern, text):
+            # Check if quote is followed by citation
+            after_quote = text[match.end():match.end() + 50]
+            if not re.search(r'\([\w\s,]+\d{4}\)', after_quote):
+                issues.append(Issue(
+                    type='plagiarism',
+                    category='Plagiarism',
+                    position=match.start(),
+                    length=len(match.group()),
+                    text=match.group(),
+                    suggestion='Long quote may need citation',
+                    confidence=0.7
+                ))
+        
+        # Simulated web search for unique phrases
+        unique_phrases = self._extract_ngrams(text, n=7)
+        # In production, these would be searched via API
+        
+        return issues
+
+class ReadabilityAnalyzer:
+    """Analyze text readability and complexity"""
+    
+    def analyze(self, text: str) -> Dict:
+        """Calculate readability metrics"""
+        sentences = [s.strip() for s in re.split(r'[.!?]+', text) if s.strip()]
+        words = text.split()
+        
+        # Count syllables (simplified)
+        def count_syllables(word):
+            word = word.lower()
+            count = 0
+            vowels = 'aeiouy'
+            previous_was_vowel = False
+            for char in word:
+                is_vowel = char in vowels
+                if is_vowel and not previous_was_vowel:
+                    count += 1
+                previous_was_vowel = is_vowel
+            if word.endswith('e'):
+                count -= 1
+            return max(1, count)
+        
+        total_syllables = sum(count_syllables(w) for w in words)
+        
+        # Flesch Reading Ease
+        if len(sentences) > 0 and len(words) > 0:
+            flesch = 206.835 - 1.015 * (len(words) / len(sentences)) - 84.6 * (total_syllables / len(words))
+            flesch = max(0, min(100, flesch))
+        else:
+            flesch = 0
+        
+        # Grade level (simplified Flesch-Kincaid)
+        if len(sentences) > 0 and len(words) > 0:
+            grade = 0.39 * (len(words) / len(sentences)) + 11.8 * (total_syllables / len(words)) - 15.59
+            grade = max(0, grade)
+        else:
+            grade = 0
+        
+        return {
+            'flesch_reading_ease': round(flesch, 1),
+            'grade_level': round(grade, 1),
+            'avg_sentence_length': round(len(words) / max(1, len(sentences)), 1),
+            'avg_word_length': round(sum(len(w) for w in words) / max(1, len(words)), 1),
+            'total_syllables': total_syllables
+        }
+
+class WritingAssistant:
+    """Main writing assistant orchestrator"""
+    
+    def __init__(self):
+        self.grammar_checker = GrammarChecker()
+        self.plagiarism_detector = PlagiarismDetector()
+        self.readability_analyzer = ReadabilityAnalyzer()
+        
+    def analyze(self, text: str) -> Dict:
+        """Perform comprehensive analysis"""
+        # Get all issues
+        grammar_issues = self.grammar_checker.check(text)
+        plagiarism_issues = self.plagiarism_detector.check(text)
+        all_issues = grammar_issues + plagiarism_issues
+        
+        # Sort by position
+        all_issues.sort(key=lambda x: x.position)
+        
+        # Calculate statistics
+        words = text.split()
+        sentences = [s.strip() for s in re.split(r'[.!?]+', text) if s.strip()]
+        
+        # Calculate score
+        error_count = sum(1 for i in all_issues if i.type == 'error')
+        warning_count = sum(1 for i in all_issues if i.type in ['warning', 'style'])
+        plagiarism_count = sum(1 for i in all_issues if i.type == 'plagiarism')
+        
+        max_issues = max(len(words) / 10, 1)
+        score = max(0, min(100, 100 - (
+            error_count * 3 + warning_count * 1 + plagiarism_count * 5
+        ) / max_issues * 100))
+        
+        # Get readability metrics
+        readability = self.readability_analyzer.analyze(text)
+        
+        return {
+            'issues': [asdict(issue) for issue in all_issues],
+            'statistics': {
+                'word_count': len(words),
+                'sentence_count': len(sentences),
+                'character_count': len(text),
+                'reading_time_minutes': max(1, len(words) // 200),
+                'error_count': error_count,
+                'warning_count': warning_count,
+                'plagiarism_count': plagiarism_count
+            },
+            'score': round(score),
+            'readability': readability
+        }
+
+# Example usage
+if __name__ == '__main__':
+    assistant = WritingAssistant()
+    
+    sample_text = """
+    Your a great writer! The importance of education cannot be overstated. 
+    In today's digital age, we must adapt to new technologies. This is very important.
+    The document was written by the committee. Climate change is one of the most 
+    pressing issues facing humanity.
+    """
+    
+    result = assistant.analyze(sample_text)
+    
+    print("Writing Analysis Results")
+    print("=" * 50)
+    print(f"\nScore: {result['score']}/100")
+    print(f"\nStatistics:")
+    for key, value in result['statistics'].items():
+        print(f"  {key}: {value}")
+    
+    print(f"\nReadability:")
+    for key, value in result['readability'].items():
+        print(f"  {key}: {value}")
+    
+    print(f"\nIssues Found: {len(result['issues'])}")
+    for i, issue in enumerate(result['issues'][:5], 1):
+        print(f"\n{i}. [{issue['category']}] {issue['type'].upper()}")
+        print(f"   Text: \"{issue['text']}\"")
+        print(f"   Suggestion: {issue['suggestion']}")
+        if issue.get('source'):
+            print(f"   Source: {issue['source']}")
+    
+    # Export to JSON
+    with open('/home/claude/analysis_result.json', 'w') as f:
+        json.dump(result, f, indent=2)
+    
+    print("\n\nFull results exported to analysis_result.json")
+

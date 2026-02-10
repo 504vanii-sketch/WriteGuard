@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Assistant - Accuracy Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            margin-bottom: 3rem;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .subtitle {
+            color: #888;
+            font-size: 1.1rem;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid #333;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .metric-label {
+            font-size: 0.9rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+        
+        .metric-value {
+            font-size: 3rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+        
+        .metric-value.good { color: #4ade80; }
+        .metric-value.warning { color: #fbbf24; }
+        .metric-value.bad { color: #f87171; }
+        
+        .metric-change {
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            color: #888;
+        }
+        
+        .metric-change.up {
+            color: #4ade80;
+        }
+        
+        .metric-change.down {
+            color: #f87171;
+        }
+        
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .chart-container {
+            background: #1e1e1e;
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid #333;
+        }
+        
+        .chart-title {
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+            color: #e0e0e0;
+        }
+        
+        .issues-table {
+            background: #1e1e1e;
+            border-radius: 12px;
+            border: 1px solid #333;
+            overflow: hidden;
+        }
+        
+        .table-header {
+            background: #2a2a2a;
+            padding: 1.5rem;
+            font-size: 1.2rem;
+            border-bottom: 1px solid #333;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            background: #2a2a2a;
+            padding: 1rem 1.5rem;
+            text-align: left;
+            font-weight: 600;
+            color: #888;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        td {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #333;
+        }
+        
+        tr:hover {
+            background: #252525;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .status-badge.pass {
+            background: rgba(74, 222, 128, 0.2);
+            color: #4ade80;
+        }
+        
+        .status-badge.fail {
+            background: rgba(248, 113, 113, 0.2);
+            color: #f87171;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+        }
+        
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Accuracy Dashboard</h1>
+            <p class="subtitle">Real-time monitoring of writing assistant performance</p>
+        </header>
+        
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">Overall Accuracy</div>
+                <div class="metric-value bad" id="overallAccuracy">67.3%</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 67.3%"></div>
+                </div>
+                <div class="metric-change up">↑ 3.2% from last week</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">Precision</div>
+                <div class="metric-value warning" id="precision">82.5%</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 82.5%"></div>
+                </div>
+                <div class="metric-change up">↑ 5.1% from last week</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">Recall</div>
+                <div class="metric-value warning" id="recall">78.9%</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 78.9%"></div>
+                </div>
+                <div class="metric-change down">↓ 1.3% from last week</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">F1 Score</div>
+                <div class="metric-value warning" id="f1Score">80.6%</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 80.6%"></div>
+                </div>
+                <div class="metric-change up">↑ 2.8% from last week</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">User Acceptance Rate</div>
+                <div class="metric-value good" id="acceptanceRate">91.2%</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 91.2%"></div>
+                </div>
+                <div class="metric-change up">↑ 1.5% from last week</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">Tests Passed</div>
+                <div class="metric-value warning" id="testsPassed">156/200</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 78%"></div>
+                </div>
+                <div class="metric-change">78% pass rate</div>
+            </div>
+        </div>
+        
+        <div class="charts-grid">
+            <div class="chart-container">
+                <div class="chart-title">Accuracy by Category</div>
+                <canvas id="categoryChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">Performance Trends (Last 30 Days)</div>
+                <canvas id="trendChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">Error Distribution</div>
+                <canvas id="errorChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">Benchmark Comparison</div>
+                <canvas id="benchmarkChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="issues-table">
+            <div class="table-header">Low-Performing Rules (Need Attention)</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Rule ID</th>
+                        <th>Category</th>
+                        <th>Accuracy</th>
+                        <th>Samples</th>
+                        <th>Status</th>
+                        <th>Action Needed</th>
+                    </tr>
+                </thead>
+                <tbody id="issuesTableBody">
+                    <tr>
+                        <td>GRAMMAR-042</td>
+                        <td>Subject-Verb Agreement</td>
+                        <td>68.5%</td>
+                        <td>1,234</td>
+                        <td><span class="status-badge fail">Needs Review</span></td>
+                        <td>Refine context detection</td>
+                    </tr>
+                    <tr>
+                        <td>STYLE-015</td>
+                        <td>Passive Voice</td>
+                        <td>71.2%</td>
+                        <td>892</td>
+                        <td><span class="status-badge fail">Needs Review</span></td>
+                        <td>Add exceptions for technical writing</td>
+                    </tr>
+                    <tr>
+                        <td>GRAMMAR-018</td>
+                        <td>Article Usage</td>
+                        <td>74.8%</td>
+                        <td>1,567</td>
+                        <td><span class="status-badge fail">Needs Review</span></td>
+                        <td>Improve proper noun detection</td>
+                    </tr>
+                    <tr>
+                        <td>STYLE-023</td>
+                        <td>Word Choice</td>
+                        <td>79.3%</td>
+                        <td>2,103</td>
+                        <td><span class="status-badge pass">Acceptable</span></td>
+                        <td>Monitor for trends</td>
+                    </tr>
+                    <tr>
+                        <td>PLAGIARISM-001</td>
+                        <td>Quote Detection</td>
+                        <td>88.9%</td>
+                        <td>445</td>
+                        <td><span class="status-badge pass">Good</span></td>
+                        <td>None</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script>
+        // Chart configurations
+        Chart.defaults.color = '#888';
+        Chart.defaults.borderColor = '#333';
+        
+        // Category accuracy chart
+        const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+        new Chart(categoryCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Grammar', 'Style', 'Plagiarism', 'Spelling'],
+                datasets: [{
+                    label: 'Precision',
+                    data: [85, 79, 92, 88],
+                    backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                }, {
+                    label: 'Recall',
+                    data: [78, 75, 88, 85],
+                    backgroundColor: 'rgba(118, 75, 162, 0.8)',
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Trend chart
+        const trendCtx = document.getElementById('trendChart').getContext('2d');
+        new Chart(trendCtx, {
+            type: 'line',
+            data: {
+                labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                datasets: [{
+                    label: 'Accuracy',
+                    data: [72, 75, 78, 82],
+                    borderColor: 'rgba(102, 126, 234, 1)',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }, {
+                    label: 'User Satisfaction',
+                    data: [85, 87, 89, 91],
+                    borderColor: 'rgba(74, 222, 128, 1)',
+                    backgroundColor: 'rgba(74, 222, 128, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100
+                    }
+                }
+            }
+        });
+        
+        // Error distribution
+        const errorCtx = document.getElementById('errorChart').getContext('2d');
+        new Chart(errorCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['False Positives', 'False Negatives', 'True Positives'],
+                datasets: [{
+                    data: [12, 8, 80],
+                    backgroundColor: [
+                        'rgba(248, 113, 113, 0.8)',
+                        'rgba(251, 191, 36, 0.8)',
+                        'rgba(74, 222, 128, 0.8)'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+        
+        // Benchmark comparison
+        const benchmarkCtx = document.getElementById('benchmarkChart').getContext('2d');
+        new Chart(benchmarkCtx, {
+            type: 'radar',
+            data: {
+                labels: ['Precision', 'Recall', 'Speed', 'Coverage', 'User Satisfaction'],
+                datasets: [{
+                    label: 'Your System',
+                    data: [82, 78, 95, 75, 91],
+                    borderColor: 'rgba(102, 126, 234, 1)',
+                    backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                }, {
+                    label: 'Grammarly',
+                    data: [92, 88, 90, 95, 94],
+                    borderColor: 'rgba(248, 113, 113, 1)',
+                    backgroundColor: 'rgba(248, 113, 113, 0.2)',
+                }, {
+                    label: 'LanguageTool',
+                    data: [85, 82, 85, 88, 85],
+                    borderColor: 'rgba(251, 191, 36, 1)',
+                    backgroundColor: 'rgba(251, 191, 36, 0.2)',
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 100
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

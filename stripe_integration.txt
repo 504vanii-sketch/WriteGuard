@@ -1,0 +1,467 @@
+﻿"""
+Payment Integration with Stripe
+================================
+
+Add subscription payments to monetize your writing assistant.
+Supports Free, Basic ($5/mo), and Pro ($15/mo) tiers.
+"""
+
+from fastapi import APIRouter, HTTPException, Depends, Request
+from pydantic import BaseModel
+from typing import Optional
+import stripe
+import os
+from datetime import datetime, timedelta
+import sqlite3
+
+# Stripe configuration
+stripe.api_key = os.getenv('STRIPE_SECRET_KEY', 'sk_test_...')  # Your secret key
+STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET', 'whsec_...')
+
+# Price IDs from Stripe Dashboard
+STRIPE_PRICES = {
+    'basic_monthly': 'price_basic_monthly_id',  # Replace with actual IDs
+    'pro_monthly': 'price_pro_monthly_id',
+    'basic_yearly': 'price_basic_yearly_id',
+    'pro_yearly': 'price_pro_yearly_id',
+}
+
+router = APIRouter(prefix="/billing", tags=["billing"])
+
+# Models
+class CreateCheckoutSession(BaseModel):
+    price_id: str
+    success_url: str
+    cancel_url: str
+
+class CreatePortalSession(BaseModel):
+    return_url: str
+
+class SubscriptionStatus(BaseModel):
+    tier: str
+    status: str
+    current_period_end: Optional[str]
+    cancel_at_period_end: bool
+
+# Database helpers
+def get_db():
+    conn = sqlite3.connect('writing_assistant.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_billing_tables():
+    """Initialize billing-related database tables"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Subscriptions table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS subscriptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            stripe_customer_id TEXT UNIQUE,
+            stripe_subscription_id TEXT UNIQUE,
+            tier TEXT NOT NULL DEFAULT 'free',
+            status TEXT NOT NULL DEFAULT 'active',
+            current_period_end TIMESTAMP,
+            cancel_at_period_end BOOLEAN DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    ''')
+    
+    # Payment history table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            stripe_payment_id TEXT UNIQUE,
+            amount INTEGER NOT NULL,
+            currency TEXT DEFAULT 'usd',
+            status TEXT NOT NULL,
+            tier TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+# API Endpoints
+
+@router.post("/create-checkout-session")
+async def create_checkout_session(
+    data: CreateCheckoutSession,
+    user: dict = Depends(verify_token)  # Your auth function
+):
+    """
+    Create Stripe checkout session for subscription
+    """
+    try:
+        # Get or create Stripe customer
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            'SELECT stripe_customer_id FROM subscriptions WHERE user_id = ?',
+            (user['id'],)
+        )
+        result = cursor.fetchone()
+        
+        if result and result['stripe_customer_id']:
+            customer_id = result['stripe_customer_id']
+        else:
+            # Create new Stripe customer
+            customer = stripe.Customer.create(
+                email=user['email'],
+                metadata={'user_id': user['id']}
+            )
+            customer_id = customer.id
+            
+            # Save customer ID
+            cursor.execute('''
+                INSERT OR REPLACE INTO subscriptions (user_id, stripe_customer_id)
+                VALUES (?, ?)
+            ''', (user['id'], customer_id))
+            conn.commit()
+        
+        conn.close()
+        
+        # Create checkout session
+        checkout_session = stripe.checkout.Session.create(
+            customer=customer_id,
+            payment_method_types=['card'],
+            line_items=[{
+                'price': data.price_id,
+                'quantity': 1,
+            }],
+            mode='subscription',
+            success_url=data.success_url + '?session_id={CHECKOUT_SESSION_ID}',
+            cancel_url=data.cancel_url,
+            metadata={'user_id': user['id']}
+        )
+        
+        return {'checkout_url': checkout_session.url}
+    
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/create-portal-session")
+async def create_portal_session(
+    data: CreatePortalSession,
+    user: dict = Depends(verify_token)
+):
+    """
+    Create Stripe customer portal session
+    Allows users to manage their subscription
+    """
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            'SELECT stripe_customer_id FROM subscriptions WHERE user_id = ?',
+            (user['id'],)
+        )
+        result = cursor.fetchone()
+        conn.close()
+        
+        if not result or not result['stripe_customer_id']:
+            raise HTTPException(status_code=404, detail="No subscription found")
+        
+        # Create portal session
+        portal_session = stripe.billing_portal.Session.create(
+            customer=result['stripe_customer_id'],
+            return_url=data.return_url,
+        )
+        
+        return {'portal_url': portal_session.url}
+    
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/subscription", response_model=SubscriptionStatus)
+async def get_subscription_status(user: dict = Depends(verify_token)):
+    """
+    Get current subscription status
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT tier, status, current_period_end, cancel_at_period_end
+        FROM subscriptions
+        WHERE user_id = ?
+    ''', (user['id'],))
+    
+    result = cursor.fetchone()
+    conn.close()
+    
+    if not result:
+        return SubscriptionStatus(
+            tier='free',
+            status='active',
+            current_period_end=None,
+            cancel_at_period_end=False
+        )
+    
+    return SubscriptionStatus(
+        tier=result['tier'],
+        status=result['status'],
+        current_period_end=result['current_period_end'],
+        cancel_at_period_end=bool(result['cancel_at_period_end'])
+    )
+
+@router.post("/webhook")
+async def stripe_webhook(request: Request):
+    """
+    Handle Stripe webhook events
+    CRITICAL: This updates subscription status automatically
+    """
+    payload = await request.body()
+    sig_header = request.headers.get('stripe-signature')
+    
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
+        )
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    except stripe.error.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+    
+    # Handle different event types
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
+        handle_checkout_completed(session)
+    
+    elif event['type'] == 'customer.subscription.updated':
+        subscription = event['data']['object']
+        handle_subscription_updated(subscription)
+    
+    elif event['type'] == 'customer.subscription.deleted':
+        subscription = event['data']['object']
+        handle_subscription_deleted(subscription)
+    
+    elif event['type'] == 'invoice.payment_succeeded':
+        invoice = event['data']['object']
+        handle_payment_succeeded(invoice)
+    
+    elif event['type'] == 'invoice.payment_failed':
+        invoice = event['data']['object']
+        handle_payment_failed(invoice)
+    
+    return {'status': 'success'}
+
+# Webhook handlers
+
+def handle_checkout_completed(session):
+    """Handle successful checkout"""
+    user_id = session['metadata']['user_id']
+    customer_id = session['customer']
+    subscription_id = session['subscription']
+    
+    # Get subscription details from Stripe
+    subscription = stripe.Subscription.retrieve(subscription_id)
+    
+    # Determine tier from price
+    tier = get_tier_from_price(subscription['items']['data'][0]['price']['id'])
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        INSERT OR REPLACE INTO subscriptions 
+        (user_id, stripe_customer_id, stripe_subscription_id, tier, status, 
+         current_period_end, cancel_at_period_end)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        user_id,
+        customer_id,
+        subscription_id,
+        tier,
+        subscription['status'],
+        datetime.fromtimestamp(subscription['current_period_end']),
+        subscription['cancel_at_period_end']
+    ))
+    
+    # Update user's tier in users table
+    cursor.execute(
+        'UPDATE users SET subscription_tier = ? WHERE id = ?',
+        (tier, user_id)
+    )
+    
+    conn.commit()
+    conn.close()
+    
+    print(f"✓ User {user_id} upgraded to {tier}")
+
+def handle_subscription_updated(subscription):
+    """Handle subscription changes"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute(
+        'SELECT user_id FROM subscriptions WHERE stripe_subscription_id = ?',
+        (subscription['id'],)
+    )
+    result = cursor.fetchone()
+    
+    if result:
+        user_id = result['user_id']
+        tier = get_tier_from_price(subscription['items']['data'][0]['price']['id'])
+        
+        cursor.execute('''
+            UPDATE subscriptions 
+            SET tier = ?, status = ?, current_period_end = ?, 
+                cancel_at_period_end = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE stripe_subscription_id = ?
+        ''', (
+            tier,
+            subscription['status'],
+            datetime.fromtimestamp(subscription['current_period_end']),
+            subscription['cancel_at_period_end'],
+            subscription['id']
+        ))
+        
+        cursor.execute(
+            'UPDATE users SET subscription_tier = ? WHERE id = ?',
+            (tier, user_id)
+        )
+        
+        conn.commit()
+    
+    conn.close()
+
+def handle_subscription_deleted(subscription):
+    """Handle subscription cancellation"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute(
+        'SELECT user_id FROM subscriptions WHERE stripe_subscription_id = ?',
+        (subscription['id'],)
+    )
+    result = cursor.fetchone()
+    
+    if result:
+        user_id = result['user_id']
+        
+        cursor.execute('''
+            UPDATE subscriptions 
+            SET tier = 'free', status = 'canceled', updated_at = CURRENT_TIMESTAMP
+            WHERE stripe_subscription_id = ?
+        ''', (subscription['id'],))
+        
+        cursor.execute(
+            'UPDATE users SET subscription_tier = ? WHERE id = ?',
+            ('free', user_id)
+        )
+        
+        conn.commit()
+        
+        print(f"✓ User {user_id} downgraded to free tier")
+    
+    conn.close()
+
+def handle_payment_succeeded(invoice):
+    """Log successful payment"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute(
+        'SELECT user_id FROM subscriptions WHERE stripe_customer_id = ?',
+        (invoice['customer'],)
+    )
+    result = cursor.fetchone()
+    
+    if result:
+        user_id = result['user_id']
+        
+        cursor.execute('''
+            INSERT INTO payments 
+            (user_id, stripe_payment_id, amount, currency, status, tier)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (
+            user_id,
+            invoice['payment_intent'],
+            invoice['amount_paid'],
+            invoice['currency'],
+            'succeeded',
+            invoice['lines']['data'][0]['description']  # Contains tier info
+        ))
+        
+        conn.commit()
+    
+    conn.close()
+
+def handle_payment_failed(invoice):
+    """Handle failed payment"""
+    # Send email notification to user
+    # Log the failure
+    print(f"⚠ Payment failed for customer {invoice['customer']}")
+
+def get_tier_from_price(price_id: str) -> str:
+    """Map Stripe price ID to tier"""
+    tier_map = {
+        STRIPE_PRICES['basic_monthly']: 'basic',
+        STRIPE_PRICES['basic_yearly']: 'basic',
+        STRIPE_PRICES['pro_monthly']: 'pro',
+        STRIPE_PRICES['pro_yearly']: 'pro',
+    }
+    return tier_map.get(price_id, 'free')
+
+# Add these pricing constants
+PRICING = {
+    'free': {
+        'name': 'Free',
+        'price': 0,
+        'daily_limit': 10,
+        'features': [
+            'Basic grammar checking',
+            'Limited plagiarism detection',
+            '10 checks per day',
+            'Community support'
+        ]
+    },
+    'basic': {
+        'name': 'Basic',
+        'price': 5,
+        'monthly_price_id': 'price_basic_monthly_id',
+        'yearly_price_id': 'price_basic_yearly_id',
+        'daily_limit': 100,
+        'features': [
+            'Advanced grammar & style',
+            'Full plagiarism detection',
+            '100 checks per day',
+            'Document storage',
+            'Email support'
+        ]
+    },
+    'pro': {
+        'name': 'Pro',
+        'price': 15,
+        'monthly_price_id': 'price_pro_monthly_id',
+        'yearly_price_id': 'price_pro_yearly_id',
+        'daily_limit': 1000,
+        'features': [
+            'All Basic features',
+            '1000 checks per day',
+            'Priority support',
+            'API access',
+            'Advanced analytics',
+            'Team collaboration'
+        ]
+    }
+}
+
+@router.get("/pricing")
+async def get_pricing():
+    """Get pricing information"""
+    return PRICING
+
+# Initialize on import
+init_billing_tables()
+

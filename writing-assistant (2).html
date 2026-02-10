@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WriteGuard - AI Writing Assistant</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #242424;
+            --text-primary: #e8e8e8;
+            --text-secondary: #a0a0a0;
+            --accent-error: #ff4757;
+            --accent-warning: #ffa502;
+            --accent-success: #26de81;
+            --accent-info: #3867d6;
+            --accent-plagiarism: #fc5c65;
+            --border: #2d2d2d;
+            --shadow: rgba(0, 0, 0, 0.5);
+        }
+        
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        
+        .app-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+        
+        header {
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            animation: slideDown 0.6s ease-out;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .logo {
+            font-family: 'Crimson Pro', serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-info), var(--accent-success));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+        
+        .tagline {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 2rem;
+            animation: fadeIn 0.8s ease-out 0.2s both;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .editor-section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .editor-header {
+            padding: 1.25rem 1.5rem;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .editor-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+        }
+        
+        .word-count {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        
+        .editor-wrapper {
+            position: relative;
+            min-height: 600px;
+        }
+        
+        #editor {
+            width: 100%;
+            min-height: 600px;
+            padding: 2rem;
+            background: var(--bg-secondary);
+            border: none;
+            color: var(--text-primary);
+            font-family: 'Crimson Pro', serif;
+            font-size: 1.1rem;
+            line-height: 1.8;
+            resize: vertical;
+            outline: none;
+        }
+        
+        #editor::placeholder {
+            color: var(--text-secondary);
+            opacity: 0.5;
+        }
+        
+        .highlight {
+            background-color: rgba(255, 71, 87, 0.2);
+            border-bottom: 2px solid var(--accent-error);
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        
+        .highlight:hover {
+            background-color: rgba(255, 71, 87, 0.3);
+        }
+        
+        .highlight.warning {
+            background-color: rgba(255, 165, 2, 0.2);
+            border-bottom-color: var(--accent-warning);
+        }
+        
+        .highlight.plagiarism {
+            background-color: rgba(252, 92, 101, 0.25);
+            border-bottom: 2px wavy var(--accent-plagiarism);
+        }
+        
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        
+        .panel {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            animation: slideLeft 0.8s ease-out 0.4s both;
+        }
+        
+        @keyframes slideLeft {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .panel-header {
+            padding: 1rem 1.25rem;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .panel-content {
+            padding: 1.25rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .panel-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .panel-content::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        .panel-content::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        
+        .stat-card {
+            background: var(--bg-tertiary);
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        
+        .stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--accent-info);
+            margin-bottom: 0.25rem;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: conic-gradient(var(--accent-success) calc(var(--score) * 1%), var(--bg-tertiary) 0);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 1.5rem auto;
+            position: relative;
+        }
+        
+        .score-circle::before {
+            content: '';
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: var(--bg-secondary);
+        }
+        
+        .score-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2rem;
+            font-weight: 700;
+            z-index: 1;
+        }
+        
+        .issue-item {
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+            border-left: 3px solid var(--accent-error);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .issue-item:hover {
+            background: var(--bg-primary);
+            transform: translateX(2px);
+        }
+        
+        .issue-item.warning {
+            border-left-color: var(--accent-warning);
+        }
+        
+        .issue-item.plagiarism {
+            border-left-color: var(--accent-plagiarism);
+        }
+        
+        .issue-type {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--accent-error);
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        .issue-item.warning .issue-type {
+            color: var(--accent-warning);
+        }
+        
+        .issue-item.plagiarism .issue-type {
+            color: var(--accent-plagiarism);
+        }
+        
+        .issue-text {
+            font-family: 'Crimson Pro', serif;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+        }
+        
+        .issue-suggestion {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+        
+        .suggestion-chip {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: var(--accent-success);
+            color: var(--bg-primary);
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-right: 0.5rem;
+            margin-top: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .suggestion-chip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(38, 222, 129, 0.3);
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 0.875rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-info), var(--accent-success));
+            color: white;
+            box-shadow: 0 4px 15px rgba(56, 103, 214, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(56, 103, 214, 0.4);
+        }
+        
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--bg-primary);
+            border-color: var(--accent-info);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            background: var(--accent-error);
+            color: white;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent-info);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .plagiarism-source {
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background: var(--bg-primary);
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+        
+        .source-link {
+            color: var(--accent-info);
+            text-decoration: none;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .source-link:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                order: -1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="logo">WriteGuard</div>
+            <div class="tagline">AI-Powered Writing Assistant & Plagiarism Detector</div>
+        </header>
+        
+        <div class="main-grid">
+            <div class="editor-section">
+                <div class="editor-header">
+                    <span class="editor-title">Document Editor</span>
+                    <span class="word-count" id="wordCount">0 words</span>
+                </div>
+                <div class="editor-wrapper">
+                    <textarea id="editor" placeholder="Start writing or paste your text here..."></textarea>
+                </div>
+                <div style="padding: 1.5rem;">
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" id="analyzeBtn">
+                            <span id="analyzeText">Analyze Document</span>
+                            <span id="loadingSpinner" style="display: none;" class="loading"></span>
+                        </button>
+                        <button class="btn btn-secondary" id="clearBtn">Clear</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sidebar">
+                <div class="panel">
+                    <div class="panel-header">
+                        Document Statistics
+                    </div>
+                    <div class="panel-content">
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-value" id="wordCountStat">0</div>
+                                <div class="stat-label">Words</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="charCount">0</div>
+                                <div class="stat-label">Characters</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="sentenceCount">0</div>
+                                <div class="stat-label">Sentences</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="readingTime">0</div>
+                                <div class="stat-label">Min Read</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <div class="panel-header">
+                        Writing Score
+                    </div>
+                    <div class="panel-content">
+                        <div class="score-circle" id="scoreCircle" style="--score: 0">
+                            <div class="score-value" id="scoreValue">0</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <div class="panel-header">
+                        Issues Found
+                        <span class="badge" id="issueCount">0</span>
+                    </div>
+                    <div class="panel-content" id="issuesPanel">
+                        <div class="empty-state">No issues detected yet. Click "Analyze Document" to check your writing.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Core application state
+        const state = {
+            text: '',
+            issues: [],
+            stats: {
+                words: 0,
+                chars: 0,
+                sentences: 0,
+                readingTime: 0
+            },
+            score: 0
+        };
+        
+        // DOM elements
+        const editor = document.getElementById('editor');
+        const wordCount = document.getElementById('wordCount');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const issuesPanel = document.getElementById('issuesPanel');
+        const scoreCircle = document.getElementById('scoreCircle');
+        const scoreValue = document.getElementById('scoreValue');
+        
+        // Grammar and style rules database
+        const grammarRules = [
+            {
+                pattern: /\b(their|there|they're)\b/gi,
+                check: (match, context) => {
+                    const word = match[0].toLowerCase();
+                    if (word === 'there' && /\bthere\s+(is|are|was|were)\b/i.test(context)) return null;
+                    if (word === 'their' && /\btheir\s+\w+/i.test(context)) return null;
+                    if (word === "they're" && /they're\s+(going|being|not)/i.test(context)) return null;
+                    return 'Check if you meant their/there/they\'re';
+                }
+            },
+            {
+                pattern: /\b(its|it's)\b/gi,
+                check: (match, context) => {
+                    const word = match[0].toLowerCase();
+                    if (word === "it's" && /it's\s+(been|going|not)/i.test(context)) return null;
+                    return 'Check if you meant its/it\'s';
+                }
+            },
+            {
+                pattern: /\b(affect|effect)\b/gi,
+                check: () => 'Verify affect (verb) vs effect (noun)',
+                type: 'warning'
+            },
+            {
+                pattern: /\bvery\s+\w+/gi,
+                check: () => 'Consider a stronger word instead of "very"',
+                type: 'style'
+            },
+            {
+                pattern: /\b(really|just|actually|basically)\b/gi,
+                check: (match) => `Consider removing weak word: "${match[0]}"`,
+                type: 'style'
+            },
+            {
+                pattern: /\.\s+[a-z]/g,
+                check: () => 'Sentence should start with capital letter',
+                type: 'error'
+            },
+            {
+                pattern: /\b(\w+)\s+\1\b/gi,
+                check: (match) => `Duplicate word: "${match[1]}"`,
+                type: 'error'
+            },
+            {
+                pattern: /\b(alot|aswell|atleast)\b/gi,
+                check: (match) => `"${match[0]}" should be two words`,
+                type: 'error'
+            },
+            {
+                pattern: /\s{2,}/g,
+                check: () => 'Multiple spaces detected',
+                type: 'warning'
+            },
+            {
+                pattern: /[.!?]\w/g,
+                check: () => 'Missing space after punctuation',
+                type: 'error'
+            }
+        ];
+        
+        // Passive voice detection
+        const passivePatterns = [
+            /\b(am|is|are|was|were|be|been|being)\s+\w+ed\b/gi,
+            /\b(am|is|are|was|were|be|been|being)\s+\w+en\b/gi
+        ];
+        
+        // Common clichés and overused phrases
+        const cliches = [
+            'at the end of the day',
+            'think outside the box',
+            'low hanging fruit',
+            'paradigm shift',
+            'game changer',
+            'move the needle',
+            'circle back',
+            'touch base',
+            'take it offline'
+        ];
+        
+        // Simulated plagiarism database (in real app, this would be API calls)
+        const plagiarismPhrases = [
+            {
+                text: 'climate change is one of the most pressing issues',
+                source: 'Common academic phrase',
+                similarity: 0.95
+            },
+            {
+                text: 'in today\'s digital age',
+                source: 'Overused introduction',
+                similarity: 0.98
+            },
+            {
+                text: 'the importance of education cannot be overstated',
+                source: 'Common educational writing',
+                similarity: 0.92
+            }
+        ];
+        
+        // Update statistics in real-time
+        editor.addEventListener('input', () => {
+            updateStats();
+        });
+        
+        function updateStats() {
+            const text = editor.value;
+            const words = text.trim().split(/\s+/).filter(w => w.length > 0);
+            const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+            
+            state.stats = {
+                words: words.length,
+                chars: text.length,
+                sentences: sentences.length,
+                readingTime: Math.ceil(words.length / 200)
+            };
+            
+            wordCount.textContent = `${state.stats.words} words`;
+            document.getElementById('wordCountStat').textContent = state.stats.words;
+            document.getElementById('charCount').textContent = state.stats.chars;
+            document.getElementById('sentenceCount').textContent = state.stats.sentences;
+            document.getElementById('readingTime').textContent = state.stats.readingTime;
+        }
+        
+        // Analyze document
+        analyzeBtn.addEventListener('click', async () => {
+            const text = editor.value.trim();
+            
+            if (!text) {
+                alert('Please enter some text to analyze');
+                return;
+            }
+            
+            // Show loading state
+            analyzeBtn.disabled = true;
+            document.getElementById('analyzeText').style.display = 'none';
+            document.getElementById('loadingSpinner').style.display = 'inline-block';
+            
+            // Simulate analysis delay
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            
+            state.issues = [];
+            
+            // Run grammar checks
+            grammarRules.forEach(rule => {
+                let match;
+                const regex = new RegExp(rule.pattern.source, rule.pattern.flags);
+                
+                while ((match = regex.exec(text)) !== null) {
+                    const context = text.substring(Math.max(0, match.index - 50), match.index + 50);
+                    const suggestion = rule.check(match, context);
+                    
+                    if (suggestion) {
+                        state.issues.push({
+                            type: rule.type || 'error',
+                            position: match.index,
+                            length: match[0].length,
+                            text: match[0],
+                            suggestion: suggestion,
+                            category: 'Grammar'
+                        });
+                    }
+                }
+            });
+            
+            // Check for passive voice
+            passivePatterns.forEach(pattern => {
+                let match;
+                while ((match = pattern.exec(text)) !== null) {
+                    state.issues.push({
+                        type: 'style',
+                        position: match.index,
+                        length: match[0].length,
+                        text: match[0],
+                        suggestion: 'Consider using active voice for clearer writing',
+                        category: 'Style'
+                    });
+                }
+            });
+            
+            // Check for clichés
+            cliches.forEach(cliche => {
+                const regex = new RegExp(cliche, 'gi');
+                let match;
+                while ((match = regex.exec(text)) !== null) {
+                    state.issues.push({
+                        type: 'style',
+                        position: match.index,
+                        length: match[0].length,
+                        text: match[0],
+                        suggestion: 'Consider replacing this cliché with original phrasing',
+                        category: 'Style'
+                    });
+                }
+            });
+            
+            // Check for plagiarism (simulated)
+            const textLower = text.toLowerCase();
+            plagiarismPhrases.forEach(phrase => {
+                const index = textLower.indexOf(phrase.text);
+                if (index !== -1) {
+                    state.issues.push({
+                        type: 'plagiarism',
+                        position: index,
+                        length: phrase.text.length,
+                        text: text.substring(index, index + phrase.text.length),
+                        suggestion: `Similar to: ${phrase.source} (${Math.round(phrase.similarity * 100)}% match)`,
+                        category: 'Plagiarism',
+                        source: phrase.source,
+                        similarity: phrase.similarity
+                    });
+                }
+            });
+            
+            // Calculate score
+            const maxIssues = Math.max(state.stats.words / 10, 1);
+            const errorWeight = state.issues.filter(i => i.type === 'error').length * 3;
+            const warningWeight = state.issues.filter(i => i.type === 'warning' || i.type === 'style').length * 1;
+            const plagiarismWeight = state.issues.filter(i => i.type === 'plagiarism').length * 5;
+            
+            const totalWeight = errorWeight + warningWeight + plagiarismWeight;
+            state.score = Math.max(0, Math.min(100, 100 - (totalWeight / maxIssues * 100)));
+            
+            // Update UI
+            displayIssues();
+            updateScore();
+            
+            // Reset button state
+            analyzeBtn.disabled = false;
+            document.getElementById('analyzeText').style.display = 'inline';
+            document.getElementById('loadingSpinner').style.display = 'none';
+        });
+        
+        function displayIssues() {
+            if (state.issues.length === 0) {
+                issuesPanel.innerHTML = '<div class="empty-state">✓ No issues found! Your writing looks great.</div>';
+                document.getElementById('issueCount').textContent = '0';
+                return;
+            }
+            
+            // Sort issues by position
+            state.issues.sort((a, b) => a.position - b.position);
+            
+            let html = '';
+            state.issues.forEach((issue, index) => {
+                const typeClass = issue.type === 'plagiarism' ? 'plagiarism' : 
+                                 issue.type === 'error' ? '' : 'warning';
+                
+                html += `
+                    <div class="issue-item ${typeClass}" data-index="${index}">
+                        <div class="issue-type">${issue.category} ${issue.type === 'error' ? '• Error' : issue.type === 'plagiarism' ? '• Warning' : '• Suggestion'}</div>
+                        <div class="issue-text">"${issue.text}"</div>
+                        <div class="issue-suggestion">${issue.suggestion}</div>
+                        ${issue.type === 'plagiarism' ? `
+                            <div class="plagiarism-source">
+                                Source: <span class="source-link">${issue.source}</span> (${Math.round(issue.similarity * 100)}% similarity)
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            
+            issuesPanel.innerHTML = html;
+            document.getElementById('issueCount').textContent = state.issues.length;
+            
+            // Add click handlers to highlight issues in editor
+            document.querySelectorAll('.issue-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const index = parseInt(item.dataset.index);
+                    const issue = state.issues[index];
+                    editor.focus();
+                    editor.setSelectionRange(issue.position, issue.position + issue.length);
+                    editor.scrollTop = editor.scrollHeight * (issue.position / editor.value.length);
+                });
+            });
+        }
+        
+        function updateScore() {
+            const targetScore = Math.round(state.score);
+            let currentScore = 0;
+            
+            const interval = setInterval(() => {
+                currentScore += Math.ceil((targetScore - currentScore) / 10);
+                scoreValue.textContent = currentScore;
+                scoreCircle.style.setProperty('--score', currentScore);
+                
+                if (currentScore >= targetScore) {
+                    clearInterval(interval);
+                    scoreValue.textContent = targetScore;
+                }
+            }, 30);
+        }
+        
+        clearBtn.addEventListener('click', () => {
+            if (confirm('Clear all content?')) {
+                editor.value = '';
+                state.issues = [];
+                state.score = 0;
+                updateStats();
+                issuesPanel.innerHTML = '<div class="empty-state">No issues detected yet. Click "Analyze Document" to check your writing.</div>';
+                document.getElementById('issueCount').textContent = '0';
+                scoreValue.textContent = '0';
+                scoreCircle.style.setProperty('--score', 0);
+            }
+        });
+        
+        // Initialize
+        updateStats();
+    </script>
+</body>
+</html>
