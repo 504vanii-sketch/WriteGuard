@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WriteGuard - AI Writing Assistant</title>
+    <title>WriteGuard - AI Writing Assistant & Plagiarism Checker</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap');
         
@@ -37,15 +37,15 @@
         }
         
         .app-container {
-            max-width: 1600px;
+            max-width: 1800px;
             margin: 0 auto;
             padding: 2rem;
             min-height: 100vh;
         }
         
         header {
-            margin-bottom: 3rem;
-            padding-bottom: 2rem;
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
             border-bottom: 1px solid var(--border);
             animation: slideDown 0.6s ease-out;
         }
@@ -79,9 +79,58 @@
             letter-spacing: 0.5px;
         }
         
+        /* PLAGIARISM ALERT - HERO SECTION */
+        .plagiarism-hero {
+            background: linear-gradient(135deg, rgba(252, 92, 101, 0.1) 0%, rgba(255, 71, 87, 0.05) 100%);
+            border: 2px solid var(--accent-plagiarism);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            display: none;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        .plagiarism-hero.show {
+            display: block;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { border-color: var(--accent-plagiarism); }
+            50% { border-color: rgba(252, 92, 101, 0.5); }
+        }
+        
+        .plagiarism-hero-content {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+        
+        .plagiarism-icon {
+            font-size: 4rem;
+        }
+        
+        .plagiarism-details h2 {
+            color: var(--accent-plagiarism);
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .plagiarism-percentage {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--accent-plagiarism);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .plagiarism-verdict {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+        
         .main-grid {
             display: grid;
-            grid-template-columns: 1fr 400px;
+            grid-template-columns: 1fr 450px;
             gap: 2rem;
             animation: fadeIn 0.8s ease-out 0.2s both;
         }
@@ -152,28 +201,6 @@
             opacity: 0.5;
         }
         
-        .highlight {
-            background-color: rgba(255, 71, 87, 0.2);
-            border-bottom: 2px solid var(--accent-error);
-            cursor: pointer;
-            position: relative;
-            transition: all 0.2s ease;
-        }
-        
-        .highlight:hover {
-            background-color: rgba(255, 71, 87, 0.3);
-        }
-        
-        .highlight.warning {
-            background-color: rgba(255, 165, 2, 0.2);
-            border-bottom-color: var(--accent-warning);
-        }
-        
-        .highlight.plagiarism {
-            background-color: rgba(252, 92, 101, 0.25);
-            border-bottom: 2px wavy var(--accent-plagiarism);
-        }
-        
         .sidebar {
             display: flex;
             flex-direction: column;
@@ -232,32 +259,76 @@
             border-radius: 3px;
         }
         
-        .stats-grid {
+        /* METRICS GRID */
+        .metrics-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 1rem;
+            gap: 0.75rem;
         }
         
-        .stat-card {
+        .metric-item {
             background: var(--bg-tertiary);
             padding: 1rem;
             border-radius: 8px;
-            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent-info);
+            transition: all 0.3s ease;
         }
         
-        .stat-value {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 1.8rem;
-            font-weight: 600;
-            color: var(--accent-info);
-            margin-bottom: 0.25rem;
+        .metric-item:hover {
+            background: var(--bg-primary);
+            transform: translateX(2px);
         }
         
-        .stat-label {
+        .metric-item.has-issues {
+            border-left-color: var(--accent-error);
+        }
+        
+        .metric-item.warning {
+            border-left-color: var(--accent-warning);
+        }
+        
+        .metric-item.plagiarism {
+            border-left-color: var(--accent-plagiarism);
+            background: rgba(252, 92, 101, 0.1);
+        }
+        
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .metric-label {
             font-size: 0.8rem;
             color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
+        }
+        
+        .metric-count {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-info);
+        }
+        
+        .metric-count.has-issues {
+            color: var(--accent-error);
+        }
+        
+        .metric-count.warning {
+            color: var(--accent-warning);
+        }
+        
+        .metric-count.plagiarism {
+            color: var(--accent-plagiarism);
+        }
+        
+        .metric-description {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
         }
         
         .score-circle {
@@ -309,6 +380,7 @@
         
         .issue-item.plagiarism {
             border-left-color: var(--accent-plagiarism);
+            background: rgba(252, 92, 101, 0.1);
         }
         
         .issue-type {
@@ -341,23 +413,22 @@
             font-style: italic;
         }
         
-        .suggestion-chip {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            background: var(--accent-success);
-            color: var(--bg-primary);
+        .plagiarism-source {
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background: var(--bg-primary);
             border-radius: 4px;
             font-size: 0.8rem;
-            font-weight: 500;
-            margin-right: 0.5rem;
-            margin-top: 0.5rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
         }
         
-        .suggestion-chip:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(38, 222, 129, 0.3);
+        .source-link {
+            color: var(--accent-info);
+            text-decoration: none;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .source-link:hover {
+            text-decoration: underline;
         }
         
         .action-buttons {
@@ -434,24 +505,6 @@
             to { transform: rotate(360deg); }
         }
         
-        .plagiarism-source {
-            margin-top: 0.5rem;
-            padding: 0.5rem;
-            background: var(--bg-primary);
-            border-radius: 4px;
-            font-size: 0.8rem;
-        }
-        
-        .source-link {
-            color: var(--accent-info);
-            text-decoration: none;
-            font-family: 'JetBrains Mono', monospace;
-        }
-        
-        .source-link:hover {
-            text-decoration: underline;
-        }
-        
         @media (max-width: 1200px) {
             .main-grid {
                 grid-template-columns: 1fr;
@@ -470,6 +523,18 @@
             <div class="tagline">AI-Powered Writing Assistant & Plagiarism Detector</div>
         </header>
         
+        <!-- PLAGIARISM ALERT HERO -->
+        <div class="plagiarism-hero" id="plagiarismHero">
+            <div class="plagiarism-hero-content">
+                <div class="plagiarism-icon">⚠️</div>
+                <div class="plagiarism-details">
+                    <h2>Plagiarism Detected</h2>
+                    <div class="plagiarism-percentage" id="plagiarismPercentage">0%</div>
+                    <div class="plagiarism-verdict" id="plagiarismVerdict"></div>
+                </div>
+            </div>
+        </div>
+        
         <div class="main-grid">
             <div class="editor-section">
                 <div class="editor-header">
@@ -477,12 +542,12 @@
                     <span class="word-count" id="wordCount">0 words</span>
                 </div>
                 <div class="editor-wrapper">
-                    <textarea id="editor" placeholder="Start writing or paste your text here..."></textarea>
+                    <textarea id="editor" placeholder="Start writing or paste your text here to check for grammar, style, and plagiarism..."></textarea>
                 </div>
                 <div style="padding: 1.5rem;">
                     <div class="action-buttons">
                         <button class="btn btn-primary" id="analyzeBtn">
-                            <span id="analyzeText">Analyze Document</span>
+                            <span id="analyzeText">Check Writing & Plagiarism</span>
                             <span id="loadingSpinner" style="display: none;" class="loading"></span>
                         </button>
                         <button class="btn btn-secondary" id="clearBtn">Clear</button>
@@ -491,27 +556,75 @@
             </div>
             
             <div class="sidebar">
+                <!-- COMPREHENSIVE METRICS -->
                 <div class="panel">
                     <div class="panel-header">
-                        Document Statistics
+                        Writing Metrics
                     </div>
                     <div class="panel-content">
-                        <div class="stats-grid">
-                            <div class="stat-card">
-                                <div class="stat-value" id="wordCountStat">0</div>
-                                <div class="stat-label">Words</div>
+                        <div class="metrics-grid">
+                            <div class="metric-item plagiarism" id="metricPlagiarism">
+                                <div class="metric-header">
+                                    <span class="metric-label">Plagiarism</span>
+                                    <span class="metric-count plagiarism" id="countPlagiarism">0</span>
+                                </div>
+                                <div class="metric-description">Matches found</div>
                             </div>
-                            <div class="stat-card">
-                                <div class="stat-value" id="charCount">0</div>
-                                <div class="stat-label">Characters</div>
+                            
+                            <div class="metric-item" id="metricGrammar">
+                                <div class="metric-header">
+                                    <span class="metric-label">Grammar</span>
+                                    <span class="metric-count" id="countGrammar">0</span>
+                                </div>
+                                <div class="metric-description">Errors detected</div>
                             </div>
-                            <div class="stat-card">
-                                <div class="stat-value" id="sentenceCount">0</div>
-                                <div class="stat-label">Sentences</div>
+                            
+                            <div class="metric-item" id="metricSpelling">
+                                <div class="metric-header">
+                                    <span class="metric-label">Spelling</span>
+                                    <span class="metric-count" id="countSpelling">0</span>
+                                </div>
+                                <div class="metric-description">Misspelled words</div>
                             </div>
-                            <div class="stat-card">
-                                <div class="stat-value" id="readingTime">0</div>
-                                <div class="stat-label">Min Read</div>
+                            
+                            <div class="metric-item" id="metricPunctuation">
+                                <div class="metric-header">
+                                    <span class="metric-label">Punctuation</span>
+                                    <span class="metric-count" id="countPunctuation">0</span>
+                                </div>
+                                <div class="metric-description">Issues found</div>
+                            </div>
+                            
+                            <div class="metric-item" id="metricConciseness">
+                                <div class="metric-header">
+                                    <span class="metric-label">Conciseness</span>
+                                    <span class="metric-count" id="countConciseness">0</span>
+                                </div>
+                                <div class="metric-description">Wordy phrases</div>
+                            </div>
+                            
+                            <div class="metric-item" id="metricReadability">
+                                <div class="metric-header">
+                                    <span class="metric-label">Readability</span>
+                                    <span class="metric-count" id="countReadability">0</span>
+                                </div>
+                                <div class="metric-description">Complex sentences</div>
+                            </div>
+                            
+                            <div class="metric-item" id="metricWordChoice">
+                                <div class="metric-header">
+                                    <span class="metric-label">Word Choice</span>
+                                    <span class="metric-count" id="countWordChoice">0</span>
+                                </div>
+                                <div class="metric-description">Suggestions</div>
+                            </div>
+                            
+                            <div class="metric-item" id="metricClarity">
+                                <div class="metric-header">
+                                    <span class="metric-label">Clarity</span>
+                                    <span class="metric-count" id="countClarity">0</span>
+                                </div>
+                                <div class="metric-description">Unclear phrases</div>
                             </div>
                         </div>
                     </div>
@@ -519,7 +632,7 @@
                 
                 <div class="panel">
                     <div class="panel-header">
-                        Writing Score
+                        Overall Score
                     </div>
                     <div class="panel-content">
                         <div class="score-circle" id="scoreCircle" style="--score: 0">
@@ -534,7 +647,7 @@
                         <span class="badge" id="issueCount">0</span>
                     </div>
                     <div class="panel-content" id="issuesPanel">
-                        <div class="empty-state">No issues detected yet. Click "Analyze Document" to check your writing.</div>
+                        <div class="empty-state">Click "Check Writing & Plagiarism" to analyze your document</div>
                     </div>
                 </div>
             </div>
@@ -542,153 +655,104 @@
     </div>
     
     <script>
-        // Core application state
-        const state = {
-            text: '',
-            issues: [],
-            stats: {
-                words: 0,
-                chars: 0,
-                sentences: 0,
-                readingTime: 0
-            },
-            score: 0
+        // Enhanced metrics tracking
+        const metrics = {
+            plagiarism: 0,
+            grammar: 0,
+            spelling: 0,
+            punctuation: 0,
+            conciseness: 0,
+            readability: 0,
+            wordChoice: 0,
+            clarity: 0
         };
         
-        // DOM elements
         const editor = document.getElementById('editor');
-        const wordCount = document.getElementById('wordCount');
         const analyzeBtn = document.getElementById('analyzeBtn');
-        const clearBtn = document.getElementById('clearBtn');
-        const issuesPanel = document.getElementById('issuesPanel');
-        const scoreCircle = document.getElementById('scoreCircle');
-        const scoreValue = document.getElementById('scoreValue');
+        const plagiarismHero = document.getElementById('plagiarismHero');
         
-        // Grammar and style rules database
-        const grammarRules = [
-            {
-                pattern: /\b(their|there|they're)\b/gi,
-                check: (match, context) => {
-                    const word = match[0].toLowerCase();
-                    if (word === 'there' && /\bthere\s+(is|are|was|were)\b/i.test(context)) return null;
-                    if (word === 'their' && /\btheir\s+\w+/i.test(context)) return null;
-                    if (word === "they're" && /they're\s+(going|being|not)/i.test(context)) return null;
-                    return 'Check if you meant their/there/they\'re';
-                }
-            },
-            {
-                pattern: /\b(its|it's)\b/gi,
-                check: (match, context) => {
-                    const word = match[0].toLowerCase();
-                    if (word === "it's" && /it's\s+(been|going|not)/i.test(context)) return null;
-                    return 'Check if you meant its/it\'s';
-                }
-            },
-            {
-                pattern: /\b(affect|effect)\b/gi,
-                check: () => 'Verify affect (verb) vs effect (noun)',
-                type: 'warning'
-            },
-            {
-                pattern: /\bvery\s+\w+/gi,
-                check: () => 'Consider a stronger word instead of "very"',
-                type: 'style'
-            },
-            {
-                pattern: /\b(really|just|actually|basically)\b/gi,
-                check: (match) => `Consider removing weak word: "${match[0]}"`,
-                type: 'style'
-            },
-            {
-                pattern: /\.\s+[a-z]/g,
-                check: () => 'Sentence should start with capital letter',
-                type: 'error'
-            },
-            {
-                pattern: /\b(\w+)\s+\1\b/gi,
-                check: (match) => `Duplicate word: "${match[1]}"`,
-                type: 'error'
-            },
-            {
-                pattern: /\b(alot|aswell|atleast)\b/gi,
-                check: (match) => `"${match[0]}" should be two words`,
-                type: 'error'
-            },
-            {
-                pattern: /\s{2,}/g,
-                check: () => 'Multiple spaces detected',
-                type: 'warning'
-            },
-            {
-                pattern: /[.!?]\w/g,
-                check: () => 'Missing space after punctuation',
-                type: 'error'
-            }
-        ];
-        
-        // Passive voice detection
-        const passivePatterns = [
-            /\b(am|is|are|was|were|be|been|being)\s+\w+ed\b/gi,
-            /\b(am|is|are|was|were|be|been|being)\s+\w+en\b/gi
-        ];
-        
-        // Common clichés and overused phrases
-        const cliches = [
-            'at the end of the day',
-            'think outside the box',
-            'low hanging fruit',
-            'paradigm shift',
-            'game changer',
-            'move the needle',
-            'circle back',
-            'touch base',
-            'take it offline'
-        ];
-        
-        // Simulated plagiarism database (in real app, this would be API calls)
-        const plagiarismPhrases = [
-            {
-                text: 'climate change is one of the most pressing issues',
-                source: 'Common academic phrase',
-                similarity: 0.95
-            },
-            {
-                text: 'in today\'s digital age',
-                source: 'Overused introduction',
-                similarity: 0.98
-            },
-            {
-                text: 'the importance of education cannot be overstated',
-                source: 'Common educational writing',
-                similarity: 0.92
-            }
-        ];
-        
-        // Update statistics in real-time
+        // Update word count in real-time
         editor.addEventListener('input', () => {
-            updateStats();
-        });
-        
-        function updateStats() {
             const text = editor.value;
             const words = text.trim().split(/\s+/).filter(w => w.length > 0);
-            const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
-            
-            state.stats = {
-                words: words.length,
-                chars: text.length,
-                sentences: sentences.length,
-                readingTime: Math.ceil(words.length / 200)
-            };
-            
-            wordCount.textContent = `${state.stats.words} words`;
-            document.getElementById('wordCountStat').textContent = state.stats.words;
-            document.getElementById('charCount').textContent = state.stats.chars;
-            document.getElementById('sentenceCount').textContent = state.stats.sentences;
-            document.getElementById('readingTime').textContent = state.stats.readingTime;
-        }
+            document.getElementById('wordCount').textContent = `${words.length} words`;
+        });
         
-        // Analyze document
+        // Enhanced rule sets for all metrics
+        const rules = {
+            // Grammar rules
+            grammar: [
+                { pattern: /\b(I|you|we|they)\s+was\b/gi, msg: 'Use "were" instead of "was"' },
+                { pattern: /\b(he|she|it)\s+were\b/gi, msg: 'Use "was" instead of "were"' },
+                { pattern: /\b(\w+)\s+\1\b/gi, msg: 'Duplicate word' },
+                { pattern: /\bshould\s+of\b/gi, msg: 'Use "should have"' },
+                { pattern: /\bcould\s+of\b/gi, msg: 'Use "could have"' },
+                { pattern: /\bwould\s+of\b/gi, msg: 'Use "would have"' },
+            ],
+            
+            // Spelling rules (common typos)
+            spelling: [
+                { pattern: /\b(teh|hte)\b/gi, msg: 'Did you mean "the"?' },
+                { pattern: /\b(recieve)\b/gi, msg: 'Correct spelling: "receive"' },
+                { pattern: /\b(occured)\b/gi, msg: 'Correct spelling: "occurred"' },
+                { pattern: /\b(seperate)\b/gi, msg: 'Correct spelling: "separate"' },
+                { pattern: /\b(definately)\b/gi, msg: 'Correct spelling: "definitely"' },
+            ],
+            
+            // Punctuation rules
+            punctuation: [
+                { pattern: /\s{2,}/g, msg: 'Multiple spaces' },
+                { pattern: /[.!?]\w/g, msg: 'Missing space after punctuation' },
+                { pattern: /\s[,;:!?]/g, msg: 'Remove space before punctuation' },
+                { pattern: /[,;]\S/g, msg: 'Add space after comma/semicolon' },
+                { pattern: /\.\s+[a-z]/g, msg: 'Capitalize after period' },
+            ],
+            
+            // Conciseness rules
+            conciseness: [
+                { pattern: /\bin order to\b/gi, msg: 'Simplify to "to"' },
+                { pattern: /\bdue to the fact that\b/gi, msg: 'Simplify to "because"' },
+                { pattern: /\bat this point in time\b/gi, msg: 'Simplify to "now"' },
+                { pattern: /\bfor the purpose of\b/gi, msg: 'Simplify to "for"' },
+                { pattern: /\bin spite of the fact that\b/gi, msg: 'Simplify to "although"' },
+            ],
+            
+            // Readability rules (complex sentences)
+            readability: [
+                { pattern: /\b(additionally|furthermore|moreover|nevertheless|nonetheless|notwithstanding)\b/gi, msg: 'Consider simpler alternatives' },
+                { pattern: /[^.!?]{150,}/g, msg: 'Very long sentence - consider splitting' },
+            ],
+            
+            // Word choice rules
+            wordChoice: [
+                { pattern: /\bvery\s+\w+/gi, msg: 'Consider a stronger word' },
+                { pattern: /\breally\b/gi, msg: 'Weak intensifier' },
+                { pattern: /\bjust\b/gi, msg: 'Often unnecessary' },
+                { pattern: /\bactually\b/gi, msg: 'Often unnecessary' },
+                { pattern: /\bbasically\b/gi, msg: 'Often unnecessary' },
+            ],
+            
+            // Clarity rules
+            clarity: [
+                { pattern: /\b(this|that|these|those|it)\b(?!\s+(is|was|are|were|will|has|have|had))/gi, msg: 'Unclear pronoun - specify what you mean' },
+                { pattern: /\bthing(s)?\b/gi, msg: 'Vague word - be more specific' },
+                { pattern: /\bstuff\b/gi, msg: 'Vague word - be more specific' },
+            ]
+        };
+        
+        // Plagiarism database (famous quotes, common phrases)
+        const plagiarismDatabase = [
+            { text: 'to be, or not to be', source: 'Hamlet by William Shakespeare', type: 'literature' },
+            { text: 'with great power comes great responsibility', source: 'Spider-Man (2002)', type: 'media' },
+            { text: 'call me ishmael', source: 'Moby-Dick by Herman Melville', type: 'literature' },
+            { text: 'i have a dream', source: 'Martin Luther King Jr. Speech', type: 'speech' },
+            { text: 'four score and seven years ago', source: 'Gettysburg Address', type: 'speech' },
+            { text: 'the only thing we have to fear is fear itself', source: 'FDR Inaugural Address', type: 'speech' },
+            { text: 'climate change is one of the most pressing issues', source: 'Common Academic Phrase', type: 'academic' },
+            { text: 'in today\'s digital age', source: 'Common Business Phrase', type: 'business' },
+            { text: 'the importance of education cannot be overstated', source: 'Common Educational Writing', type: 'academic' },
+        ];
+        
         analyzeBtn.addEventListener('click', async () => {
             const text = editor.value.trim();
             
@@ -697,129 +761,175 @@
                 return;
             }
             
-            // Show loading state
+            // Show loading
             analyzeBtn.disabled = true;
             document.getElementById('analyzeText').style.display = 'none';
             document.getElementById('loadingSpinner').style.display = 'inline-block';
             
-            // Simulate analysis delay
+            // Simulate API delay
             await new Promise(resolve => setTimeout(resolve, 1500));
             
-            state.issues = [];
+            // Reset metrics
+            Object.keys(metrics).forEach(key => metrics[key] = 0);
+            const issues = [];
             
-            // Run grammar checks
-            grammarRules.forEach(rule => {
-                let match;
-                const regex = new RegExp(rule.pattern.source, rule.pattern.flags);
-                
-                while ((match = regex.exec(text)) !== null) {
-                    const context = text.substring(Math.max(0, match.index - 50), match.index + 50);
-                    const suggestion = rule.check(match, context);
+            // Check plagiarism FIRST (most important)
+            let plagiarismMatches = [];
+            const textLower = text.toLowerCase();
+            
+            plagiarismDatabase.forEach(item => {
+                const index = textLower.indexOf(item.text);
+                if (index !== -1) {
+                    metrics.plagiarism++;
+                    plagiarismMatches.push({
+                        type: 'plagiarism',
+                        category: 'Plagiarism',
+                        position: index,
+                        length: item.text.length,
+                        text: text.substring(index, index + item.text.length),
+                        suggestion: `Similar to ${item.type}: ${item.source}`,
+                        source: item.source,
+                        similarity: 0.95
+                    });
+                }
+            });
+            
+            // Check quotes without citations
+            const quotePattern = /"([^"]{30,})"/g;
+            let match;
+            while ((match = quotePattern.exec(text)) !== null) {
+                const afterQuote = text.substring(match.index + match[0].length, match.index + match[0].length + 50);
+                if (!/\([A-Z][a-z]+,?\s+\d{4}\)/.test(afterQuote)) {
+                    metrics.plagiarism++;
+                    plagiarismMatches.push({
+                        type: 'plagiarism',
+                        category: 'Plagiarism',
+                        position: match.index,
+                        length: match[0].length,
+                        text: match[0],
+                        suggestion: 'Long quote may need citation',
+                        source: 'Unknown - Citation Needed',
+                        similarity: 0.7
+                    });
+                }
+            }
+            
+            issues.push(...plagiarismMatches);
+            
+            // Check all other metrics
+            Object.keys(rules).forEach(category => {
+                rules[category].forEach(rule => {
+                    const regex = new RegExp(rule.pattern.source, rule.pattern.flags);
+                    let match;
                     
-                    if (suggestion) {
-                        state.issues.push({
-                            type: rule.type || 'error',
+                    while ((match = regex.exec(text)) !== null) {
+                        metrics[category]++;
+                        issues.push({
+                            type: category === 'grammar' || category === 'spelling' ? 'error' : 'warning',
+                            category: category.charAt(0).toUpperCase() + category.slice(1),
                             position: match.index,
                             length: match[0].length,
                             text: match[0],
-                            suggestion: suggestion,
-                            category: 'Grammar'
+                            suggestion: rule.msg
                         });
                     }
-                }
+                });
             });
             
-            // Check for passive voice
-            passivePatterns.forEach(pattern => {
-                let match;
-                while ((match = pattern.exec(text)) !== null) {
-                    state.issues.push({
-                        type: 'style',
-                        position: match.index,
-                        length: match[0].length,
-                        text: match[0],
-                        suggestion: 'Consider using active voice for clearer writing',
-                        category: 'Style'
-                    });
-                }
-            });
+            // Calculate plagiarism percentage
+            const totalWords = text.split(/\s+/).length;
+            const flaggedWords = plagiarismMatches.reduce((sum, m) => sum + m.text.split(/\s+/).length, 0);
+            const plagiarismPercentage = Math.round((flaggedWords / totalWords) * 100) || 0;
             
-            // Check for clichés
-            cliches.forEach(cliche => {
-                const regex = new RegExp(cliche, 'gi');
-                let match;
-                while ((match = regex.exec(text)) !== null) {
-                    state.issues.push({
-                        type: 'style',
-                        position: match.index,
-                        length: match[0].length,
-                        text: match[0],
-                        suggestion: 'Consider replacing this cliché with original phrasing',
-                        category: 'Style'
-                    });
+            // Update plagiarism hero
+            if (plagiarismPercentage > 0) {
+                plagiarismHero.classList.add('show');
+                document.getElementById('plagiarismPercentage').textContent = `${plagiarismPercentage}%`;
+                
+                let verdict = '';
+                if (plagiarismPercentage >= 30) {
+                    verdict = '🚨 SEVERE: Significant plagiarism detected - requires immediate attention';
+                } else if (plagiarismPercentage >= 15) {
+                    verdict = '⚠️ MODERATE: Some plagiarism detected - needs revision';
+                } else if (plagiarismPercentage > 0) {
+                    verdict = '⚠️ MINOR: Citations may be needed';
                 }
-            });
+                
+                document.getElementById('plagiarismVerdict').textContent = verdict;
+            } else {
+                plagiarismHero.classList.remove('show');
+            }
             
-            // Check for plagiarism (simulated)
-            const textLower = text.toLowerCase();
-            plagiarismPhrases.forEach(phrase => {
-                const index = textLower.indexOf(phrase.text);
-                if (index !== -1) {
-                    state.issues.push({
-                        type: 'plagiarism',
-                        position: index,
-                        length: phrase.text.length,
-                        text: text.substring(index, index + phrase.text.length),
-                        suggestion: `Similar to: ${phrase.source} (${Math.round(phrase.similarity * 100)}% match)`,
-                        category: 'Plagiarism',
-                        source: phrase.source,
-                        similarity: phrase.similarity
-                    });
-                }
-            });
+            // Update all metric counts
+            updateMetrics();
             
             // Calculate score
-            const maxIssues = Math.max(state.stats.words / 10, 1);
-            const errorWeight = state.issues.filter(i => i.type === 'error').length * 3;
-            const warningWeight = state.issues.filter(i => i.type === 'warning' || i.type === 'style').length * 1;
-            const plagiarismWeight = state.issues.filter(i => i.type === 'plagiarism').length * 5;
-            
-            const totalWeight = errorWeight + warningWeight + plagiarismWeight;
-            state.score = Math.max(0, Math.min(100, 100 - (totalWeight / maxIssues * 100)));
+            const totalIssues = Object.values(metrics).reduce((a, b) => a + b, 0);
+            const maxIssues = Math.max(totalWords / 10, 1);
+            const plagiarismPenalty = plagiarismPercentage * 2;
+            const score = Math.max(0, Math.min(100, 100 - (totalIssues / maxIssues * 50) - plagiarismPenalty));
             
             // Update UI
-            displayIssues();
-            updateScore();
+            displayIssues(issues);
+            updateScore(Math.round(score));
             
-            // Reset button state
+            // Reset button
             analyzeBtn.disabled = false;
             document.getElementById('analyzeText').style.display = 'inline';
             document.getElementById('loadingSpinner').style.display = 'none';
         });
         
-        function displayIssues() {
-            if (state.issues.length === 0) {
+        function updateMetrics() {
+            Object.keys(metrics).forEach(key => {
+                const count = metrics[key];
+                const element = document.getElementById(`count${key.charAt(0).toUpperCase() + key.slice(1)}`);
+                const metricItem = document.getElementById(`metric${key.charAt(0).toUpperCase() + key.slice(1)}`);
+                
+                if (element) {
+                    element.textContent = count;
+                    
+                    // Update styling based on count
+                    if (count > 0) {
+                        element.classList.add(key === 'plagiarism' ? 'plagiarism' : 'has-issues');
+                        metricItem.classList.add(key === 'plagiarism' ? 'plagiarism' : 'has-issues');
+                    } else {
+                        element.classList.remove('has-issues', 'plagiarism');
+                        metricItem.classList.remove('has-issues', 'plagiarism');
+                    }
+                }
+            });
+        }
+        
+        function displayIssues(issues) {
+            const issuesPanel = document.getElementById('issuesPanel');
+            document.getElementById('issueCount').textContent = issues.length;
+            
+            if (issues.length === 0) {
                 issuesPanel.innerHTML = '<div class="empty-state">✓ No issues found! Your writing looks great.</div>';
-                document.getElementById('issueCount').textContent = '0';
                 return;
             }
             
-            // Sort issues by position
-            state.issues.sort((a, b) => a.position - b.position);
+            // Sort: plagiarism first, then by position
+            issues.sort((a, b) => {
+                if (a.type === 'plagiarism' && b.type !== 'plagiarism') return -1;
+                if (a.type !== 'plagiarism' && b.type === 'plagiarism') return 1;
+                return a.position - b.position;
+            });
             
             let html = '';
-            state.issues.forEach((issue, index) => {
+            issues.forEach((issue, index) => {
                 const typeClass = issue.type === 'plagiarism' ? 'plagiarism' : 
                                  issue.type === 'error' ? '' : 'warning';
                 
                 html += `
                     <div class="issue-item ${typeClass}" data-index="${index}">
-                        <div class="issue-type">${issue.category} ${issue.type === 'error' ? '• Error' : issue.type === 'plagiarism' ? '• Warning' : '• Suggestion'}</div>
+                        <div class="issue-type">${issue.category} ${issue.type === 'plagiarism' ? '• WARNING' : issue.type === 'error' ? '• Error' : '• Suggestion'}</div>
                         <div class="issue-text">"${issue.text}"</div>
                         <div class="issue-suggestion">${issue.suggestion}</div>
-                        ${issue.type === 'plagiarism' ? `
+                        ${issue.type === 'plagiarism' && issue.source ? `
                             <div class="plagiarism-source">
-                                Source: <span class="source-link">${issue.source}</span> (${Math.round(issue.similarity * 100)}% similarity)
+                                <strong>Source:</strong> <span class="source-link">${issue.source}</span>
+                                ${issue.similarity ? ` (${Math.round(issue.similarity * 100)}% match)` : ''}
                             </div>
                         ` : ''}
                     </div>
@@ -827,22 +937,11 @@
             });
             
             issuesPanel.innerHTML = html;
-            document.getElementById('issueCount').textContent = state.issues.length;
-            
-            // Add click handlers to highlight issues in editor
-            document.querySelectorAll('.issue-item').forEach(item => {
-                item.addEventListener('click', () => {
-                    const index = parseInt(item.dataset.index);
-                    const issue = state.issues[index];
-                    editor.focus();
-                    editor.setSelectionRange(issue.position, issue.position + issue.length);
-                    editor.scrollTop = editor.scrollHeight * (issue.position / editor.value.length);
-                });
-            });
         }
         
-        function updateScore() {
-            const targetScore = Math.round(state.score);
+        function updateScore(targetScore) {
+            const scoreValue = document.getElementById('scoreValue');
+            const scoreCircle = document.getElementById('scoreCircle');
             let currentScore = 0;
             
             const interval = setInterval(() => {
@@ -857,21 +956,18 @@
             }, 30);
         }
         
-        clearBtn.addEventListener('click', () => {
+        document.getElementById('clearBtn').addEventListener('click', () => {
             if (confirm('Clear all content?')) {
                 editor.value = '';
-                state.issues = [];
-                state.score = 0;
-                updateStats();
-                issuesPanel.innerHTML = '<div class="empty-state">No issues detected yet. Click "Analyze Document" to check your writing.</div>';
+                Object.keys(metrics).forEach(key => metrics[key] = 0);
+                updateMetrics();
+                document.getElementById('wordCount').textContent = '0 words';
+                document.getElementById('issuesPanel').innerHTML = '<div class="empty-state">Click "Check Writing & Plagiarism" to analyze your document</div>';
                 document.getElementById('issueCount').textContent = '0';
-                scoreValue.textContent = '0';
-                scoreCircle.style.setProperty('--score', 0);
+                updateScore(0);
+                plagiarismHero.classList.remove('show');
             }
         });
-        
-        // Initialize
-        updateStats();
     </script>
 </body>
 </html>
